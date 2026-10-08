@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mon EDT">
+<title>Mon Emploi du Temps</title>
+<style>
+:root{
+  --bg:#f4f5f7; --panel:#ffffff; --text:#1c1e21; --muted:#6b7280; --border:#e5e7eb; --accent:#4f7cff;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --bg:#15171c; --panel:#1e2128; --text:#eceef1; --muted:#9aa0aa; --border:#2c2f37; }
+}
+:root[data-theme="dark"]{ --bg:#15171c; --panel:#1e2128; --text:#eceef1; --muted:#9aa0aa; --border:#2c2f37; }
+*{box-sizing:border-box;}
+html{scroll-padding-top:env(safe-area-inset-top,0px);}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:var(--panel);border-bottom:1px solid var(--border);padding:10px 14px;}
+h1{font-size:16px;margin:0 0 8px;display:flex;justify-content:space-between;align-items:center;}
+#syncdot{font-size:11px;color:var(--muted);}
+nav{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+.navbtn{border:1px solid var(--border);background:var(--bg);color:var(--text);padding:6px 12px;border-radius:20px;font-size:13px;cursor:pointer;white-space:nowrap;}
+.navbtn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+.navbtn.addbtn{background:transparent;color:var(--accent);border-style:dashed;}
+main{padding:14px;max-width:1000px;margin:0 auto;overflow-x:auto;}
+.toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap;}
+.btn{background:var(--accent);color:#fff;border:none;padding:8px 14px;border-radius:8px;font-size:13px;cursor:pointer;}
+.btn.secondary{background:var(--panel);color:var(--text);border:1px solid var(--border);}
+.weeknav{display:flex;align-items:center;gap:10px;}
+.weeknav button{border:1px solid var(--border);background:var(--panel);color:var(--text);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:14px;}
+.weeklabel{font-size:13px;font-weight:600;min-width:150px;text-align:center;}
+.gridouter{position:relative;display:inline-block;max-width:100%;}
+.gridwrap{overflow:hidden;background:var(--panel);border:1px solid var(--border);border-radius:10px;display:block;padding-bottom:18px;}
+.grid{display:grid;}
+.dayhead{padding:8px 4px;text-align:center;font-size:12px;font-weight:600;border-bottom:1px solid var(--border);border-left:1px solid var(--border);}
+.dayhead small{display:block;font-weight:400;color:var(--muted);}
+.dayhead.today{color:var(--accent);}
+.corner{border-bottom:1px solid var(--border);}
+.gutter{position:relative;border-right:1px solid var(--border);}
+.gutter span{position:absolute;right:4px;transform:translateY(-50%);font-size:10px;color:var(--muted);}
+.daycol{position:relative;border-left:1px solid var(--border);}
+.ev{position:absolute;left:2px;right:2px;border-radius:6px;padding:3px 5px;font-size:11px;overflow:hidden;cursor:pointer;line-height:1.25;box-shadow:0 1px 2px rgba(0,0,0,.15);}
+.ev b{display:block;font-size:11px;}
+.ev{cursor:grab;}
+.ev-resize{position:absolute;left:0;right:0;bottom:0;height:7px;cursor:ns-resize;}
+.ev-resize:hover{background:rgba(0,0,0,.15);}
+.resize-r{position:absolute;top:8px;right:0;width:8px;height:calc(100% - 16px);cursor:ew-resize;z-index:6;border-radius:4px;}
+.resize-l{position:absolute;top:8px;left:0;width:8px;height:calc(100% - 16px);cursor:ew-resize;z-index:6;border-radius:4px;}
+.resize-b{position:absolute;left:8px;bottom:0;height:8px;width:calc(100% - 16px);cursor:ns-resize;z-index:6;border-radius:4px;}
+.resize-t{position:absolute;left:8px;top:0;height:8px;width:calc(100% - 16px);cursor:ns-resize;z-index:6;border-radius:4px;}
+.resize-c{position:absolute;right:0;bottom:0;width:16px;height:16px;cursor:nwse-resize;z-index:7;border-radius:0 0 8px 0;background:linear-gradient(135deg,transparent 55%,var(--accent) 55%);opacity:.6;}
+.resize-r:hover,.resize-l:hover,.resize-b:hover,.resize-t:hover{background:var(--accent);opacity:.35;}
+.resize-c:hover{opacity:1;}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:13px;z-index:200;box-shadow:0 4px 12px rgba(0,0,0,.25);opacity:0;transition:opacity .25s;pointer-events:none;max-width:85vw;text-align:center;}
+.swatch{transition:transform .1s;}
+.swatch:active{transform:scale(.9);}
+.list{display:flex;flex-direction:column;gap:14px;}
+.grouptitle{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;margin:4px 0 -4px;}
+.cards{display:flex;flex-direction:column;gap:8px;}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;justify-content:space-between;gap:10px;align-items:flex-start;}
+.card.flash{outline:2px solid var(--accent);}
+.card .info b{display:block;font-size:14px;}
+.card .info span{font-size:12px;color:var(--muted);}
+.card .actions{display:flex;gap:6px;}
+.iconbtn{border:1px solid var(--border);background:var(--bg);color:var(--text);border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;}
+.empty{color:var(--muted);font-size:13px;padding:20px 0;text-align:center;}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;padding:16px;z-index:50;}
+.overlay.open{display:flex;}
+.modal{background:var(--panel);border-radius:12px;padding:18px;width:100%;max-width:380px;max-height:90vh;overflow:auto;}
+.modal h2{margin:0 0 12px;font-size:16px;}
+.field{margin-bottom:10px;}
+.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;}
+.field input,.field select,.field textarea{width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;}
+.row2{display:flex;gap:8px;}
+.row2 .field{flex:1;}
+.modalbtns{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;}
+</style>
+</head>
+<body>
+<header>
+  <h1>📅 Mon Emploi du Temps <span style="display:flex;gap:8px;align-items:center;font-weight:400;"><button class="iconbtn" id="syncdot" onclick="openSyncModal()">local</button><button class="iconbtn" onclick="exportData()">⬇️ Exporter</button><label class="iconbtn" style="cursor:pointer;margin:0;">⬆️ Importer<input type="file" accept=".json" style="display:none" onchange="importData(event)"></label></span></h1>
+  <nav id="nav"></nav>
+</header>
+<main id="main"></main>
+<div id="toast"></div>
+<div class="overlay" id="overlay"><div class="modal" id="modalBody"></div></div>
+
+<script>
+const DAYS_SHORT=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+const MONTHS=['jan.','fév.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+const START_H=8, END_H=24;
+const HOURS=END_H-START_H;
+let gridSize = JSON.parse(localStorage.getItem('edt_gridsize')||'null') || {colW:100, hourPx:40};
+
+let categories = JSON.parse(localStorage.getItem('edt_categories')||'null') || [
+  {id:'cours',name:'Cours',color:'#4f7cff'},
+  {id:'revision',name:'Révision',color:'#22b573'},
+  {id:'devoir',name:'Devoir',color:'#f5a623'},
+  {id:'perso',name:'Perso',color:'#e0457b'},
+  {id:'evenement',name:'Événement',color:'#8b5cf6'}
+];
+let events = JSON.parse(localStorage.getItem('edt_events')||'null') || [];
+let page='edt', flashId=null, editingId=null;
+let db=null, dbReady=false;
+
+function toISODate(d){ const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; }
+function mondayOf(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x; }
+let weekStart = mondayOf(new Date());
+
+function saveLocal(){ localStorage.setItem('edt_categories',JSON.stringify(categories)); localStorage.setItem('edt_events',JSON.stringify(events)); }
+function catOf(id){ return categories.find(c=>c.id===id); }
+function toMin(t){ const [h,m]=t.split(':').map(Number); return h*60+m; }
+function minutesToTime(m){ const h=Math.floor(m/60), mm=m%60; return String(h).padStart(2,'0')+':'+String(mm).padStart(2,'0'); }
+
+function attemptMove(ev, newDate, newStartMin){
+  const duration=toMin(ev.end)-toMin(ev.start);
+  const newEndMin=newStartMin+duration;
+  if(newStartMin<START_H*60 || newEndMin>24*60){
+    showToast("Impossible : ce créneau dépasserait minuit (00h). Le cours n'a pas été déplacé.");
+    render();
+    return;
+  }
+  const others=events.filter(x=>x.id!==ev.id && x.date===newDate);
+  const shifts={};
+  let blocks=[{start:newStartMin,end:newEndMin}];
+  let changed=true, guard=0;
+  while(changed && guard<50){
+    changed=false; guard++;
+    for(const item of others){
+      const curStart = shifts[item.id]!==undefined?shifts[item.id].start:toMin(item.start);
+      const curEnd = shifts[item.id]!==undefined?shifts[item.id].end:toMin(item.end);
+      for(const b of blocks){
+        if(curStart<b.end && curEnd>b.start && curStart<b.end && !(shifts[item.id] && shifts[item.id].start>=b.end)){
+          const dur=toMin(item.end)-toMin(item.start);
+          const ns=b.end, ne=ns+dur;
+          if(ne>24*60){
+            showToast("Impossible : ce créneau dépasserait minuit (00h). Le cours n'a pas été déplacé.");
+            render();
+            return;
+          }
+          if(!shifts[item.id] || shifts[item.id].start!==ns){ shifts[item.id]={start:ns,end:ne}; changed=true; }
+        }
+      }
+    }
+    blocks=[{start:newStartMin,end:newEndMin}, ...Object.values(shifts)];
+  }
+  ev.date=newDate; ev.start=minutesToTime(newStartMin); ev.end=minutesToTime(newEndMin);
+  persistEventUpsert(ev);
+  Object.keys(shifts).forEach(id=>{
+    const item=events.find(x=>x.id===id);
+    if(item){ item.start=minutesToTime(shifts[id].start); item.end=minutesToTime(shifts[id].end); persistEventUpsert(item); }
+  });
+  saveLocal();
+  render();
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.style.opacity='1';
+  clearTimeout(t._timer); t._timer=setTimeout(()=>{ t.style.opacity='0'; },2400);
+}
+function customConfirm(message,onYes){
+  const body=document.getElementById('modalBody');
+  body.innerHTML=`<h2>Confirmation</h2><p style="font-size:14px;margin-bottom:16px;">${message}</p>
+    <div class="modalbtns"><button class="btn secondary" id="cfNo">Annuler</button><button class="btn" id="cfYes" style="background:#e0457b;">Confirmer</button></div>`;
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('cfNo').onclick=()=>document.getElementById('overlay').classList.remove('open');
+  document.getElementById('cfYes').onclick=()=>{ document.getElementById('overlay').classList.remove('open'); onYes(); };
+}
+
+let syncCode = localStorage.getItem('edt_synccode') || null;
+let cloudReady = false;
+
+function cloudUrl(){ return `https://kvdb.io/${syncCode}/edt-data`; }
+
+async function ensureSyncCode(){
+  if(syncCode) return;
+  try{
+    const r = await fetch('https://kvdb.io/', { method:'POST' });
+    const id = (await r.text()).trim();
+    if(id){ syncCode=id; localStorage.setItem('edt_synccode', syncCode); }
+  }catch(e){ /* restera sur stockage local uniquement */ }
+}
+
+async function cloudPull(){
+  if(!syncCode) return false;
+  try{
+    const r = await fetch(cloudUrl());
+    if(r.status===200){
+      const txt = await r.text();
+      if(txt){
+        const data = JSON.parse(txt);
+        if(data && data.events && data.categories){
+          categories = data.categories; events = data.events;
+          saveLocal();
+          return true;
+        }
+      }
+    }
+  }catch(e){}
+  return false;
+}
+async function cloudPush(){
+  if(!syncCode) return;
+  try{
+    await fetch(cloudUrl(), { method:'PUT', body: JSON.stringify({categories, events}) });
+    cloudReady = true;
+    updateSyncIndicator();
+  }catch(e){ cloudReady=false; updateSyncIndicator(); }
+}
+function updateSyncIndicator(){
+  const el=document.getElementById('syncdot');
+  if(!el) return;
+  el.textContent = dbReady ? '☁️ Claude' : (syncCode ? '🔗 '+syncCode : '💾 local');
+}
+
+async function initSync(){
+  try{ db = window.claude?.use ? await window.claude.use('db') : null; }catch(e){ db=null; }
+  if(db){
+    dbReady=true;
+    db.doc('meta/categories').onSnapshot(snap=>{
+      if(dbWriteFailed){ return; }
+      if(snap.exists && snap.data().list){ categories=snap.data().list; }
+      else { db.doc('meta/categories').set({list:categories}).catch(dbFail); }
+      render();
+    }, ()=>{});
+    db.collection('events').onSnapshot(qs=>{
+      if(dbWriteFailed) return;
+      events = qs.docs.map(d=>({id:d.id, ...d.data()}));
+      render();
+    }, ()=>{});
+    updateSyncIndicator();
+  } else {
+    await ensureSyncCode();
+    await cloudPull();
+    updateSyncIndicator();
+    setInterval(cloudPull, 20000);
+  }
+  render();
+}
+
+function openSyncModal(){
+  const body=document.getElementById('modalBody');
+  body.innerHTML=`
+    <h2>🔗 Synchroniser mes appareils</h2>
+    <p class="hint">Ce code relie tes appareils entre eux, sans compte. Copie-le et entre-le sur ton autre appareil (téléphone, autre navigateur...) pour retrouver le même emploi du temps partout.</p>
+    <div class="field"><label>Mon code</label>
+      <div style="display:flex;gap:8px;">
+        <input id="sync_code_display" value="${syncCode||''}" readonly style="flex:1;">
+        <button type="button" class="btn secondary" id="copyCodeBtn">Copier</button>
+      </div>
+    </div>
+    <div class="field"><label>Utiliser un autre code (pour rejoindre un appareil existant)</label>
+      <div style="display:flex;gap:8px;">
+        <input id="sync_code_input" placeholder="colle un code ici">
+        <button type="button" class="btn secondary" id="useCodeBtn">Utiliser</button>
+      </div>
+    </div>
+    <div class="modalbtns"><button type="button" class="btn secondary" onclick="closeModal()">Fermer</button></div>`;
+  document.getElementById('copyCodeBtn').onclick=()=>{
+    const inp=document.getElementById('sync_code_display'); inp.select();
+    try{ document.execCommand('copy'); showToast('Code copié !'); }catch(e){ showToast('Copie manuelle : sélectionne le texte.'); }
+  };
+  document.getElementById('useCodeBtn').onclick=async()=>{
+    const v=document.getElementById('sync_code_input').value.trim();
+    if(!v){ showToast('Colle un code.'); return; }
+    syncCode=v; localStorage.setItem('edt_synccode', syncCode);
+    const got = await cloudPull();
+    updateSyncIndicator();
+    closeModal();
+    render();
+    showToast(got ? 'Connecté ! Données récupérées.' : 'Connecté. Aucune donnée existante sur ce code pour le moment.');
+  };
+  document.getElementById('overlay').classList.add('open');
+}
+
+let dbWriteFailed=false;
+function dbFail(){ if(!dbWriteFailed){ dbWriteFailed=true; document.getElementById('syncdot').textContent='💾 sur cet appareil'; showToast('Synchro indisponible : enregistré sur cet appareil.'); } }
+function persistCategories(){
+  saveLocal();
+  if(dbReady && !dbWriteFailed){ try{ db.doc('meta/categories').set({list:categories}).catch(dbFail); }catch(e){ dbFail(); } }
+  if(!dbReady) cloudPush();
+}
+function persistEventUpsert(ev){
+  saveLocal();
+  if(dbReady){
+    const ref = ev.id.startsWith('local') ? db.collection('events').doc() : db.collection('events').doc(ev.id);
+    ref.set({title:ev.title,categoryId:ev.categoryId,date:ev.date,start:ev.start,end:ev.end,notes:ev.notes,matiere:ev.matiere,recurrence:ev.recurrence||'none',color:ev.color||null,color2:ev.color2||null,pattern:ev.pattern||'rien',degrade:!!ev.degrade,borderW:ev.borderW||'moyen',hatchW:ev.hatchW||'moyen'}).catch(dbFail);
+  }
+  if(!dbReady) cloudPush();
+}
+function persistEventDelete(id){
+  saveLocal();
+  if(dbReady){ db.collection('events').doc(id).delete().catch(dbFail); }
+  if(!dbReady) cloudPush();
+}
+
+function exportData(){
+  const backup={categories,events,exportedAt:new Date().toISOString()};
+  const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download='mon-edt-sauvegarde.json'; a.click();
+  URL.revokeObjectURL(url);
+}
+function importData(evt){
+  const file=evt.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const data=JSON.parse(reader.result);
+      if(!data.categories || !data.events) throw new Error('format');
+      customConfirm('Importer ces données va remplacer ton emploi du temps actuel sur cet appareil. Continuer ?',()=>{
+        categories=data.categories; events=data.events;
+        persistCategories();
+        events.forEach(e=>persistEventUpsert(e));
+        render();
+        showToast('Import réussi !');
+      });
+    }catch(e){ showToast("Fichier invalide, impossible d'importer."); }
+  };
+  reader.readAsText(file);
+  evt.target.value='';
+}
+
+function renderNav(){
+  const nav=document.getElementById('nav'); nav.innerHTML='';
+  const edtBtn=document.createElement('button');
+  edtBtn.className='navbtn'+(page==='edt'?' active':'');
+  edtBtn.textContent='🗓 EDT';
+  edtBtn.onclick=()=>{page='edt';render();};
+  nav.appendChild(edtBtn);
+  categories.forEach(c=>{
+    const b=document.createElement('button');
+    b.className='navbtn'+(page===c.id?' active':'');
+    b.textContent=c.name; b.style.borderColor=c.color;
+    if(page===c.id) b.style.background=c.color;
+    b.onclick=()=>{page=c.id;flashId=null;render();};
+    nav.appendChild(b);
+  });
+  const add=document.createElement('button');
+  add.className='navbtn addbtn'; add.textContent='+ Page';
+  add.onclick=openAddCategory;
+  nav.appendChild(add);
+}
+
+function render(){
+  renderNav();
+  const main=document.getElementById('main'); main.innerHTML='';
+  main.style.maxWidth = page==='edt' ? 'none' : '1000px';
+  if(page==='edt') renderEdt(main); else renderList(main,page);
+}
+
+function weekLabel(){
+  const end=new Date(weekStart); end.setDate(end.getDate()+6);
+  return `${weekStart.getDate()} ${MONTHS[weekStart.getMonth()]} — ${end.getDate()} ${MONTHS[end.getMonth()]} ${end.getFullYear()}`;
+}
+function occursOn(e,iso,dow){
+  if(e.date===iso) return true;
+  if(!e.recurrence || e.recurrence==='none') return false;
+  if(iso<e.date) return false;
+  if(e.recurrence==='daily') return true;
+  if(e.recurrence==='weekly'){
+    const ed=new Date(e.date+'T00:00:00');
+    return ((ed.getDay()+6)%7)===dow;
+  }
+  if(e.recurrence==='monthly'){
+    const ed=new Date(e.date+'T00:00:00'); const d=new Date(iso+'T00:00:00');
+    return ed.getDate()===d.getDate();
+  }
+  return false;
+}
+
+const BORDER_W={tresfin:'0.5px',fin:'1px',moyen:'2px',gros:'3.5px',tresgros:'6px'};
+const HATCH_PERIOD={tresfin:6,fin:9,moyen:13,gros:20,tresgros:32};
+function textColorFor(hex){
+  const c=(hex||'#4f7cff').replace('#','');
+  const r=parseInt(c.substr(0,2),16), g=parseInt(c.substr(2,2),16), b=parseInt(c.substr(4,2),16);
+  const lum=(0.299*r+0.587*g+0.114*b)/255;
+  return lum>0.62 ? '#1c1e21' : '#ffffff';
+}
+function patternBg(base,base2,pattern,hatchW,degrade){
+  if(degrade) return `linear-gradient(135deg, ${base}, ${base2||base})`;
+  const period=HATCH_PERIOD[hatchW]||HATCH_PERIOD.moyen;
+  const half=period/2;
+  if(pattern==='hachure1') return `repeating-linear-gradient(45deg, ${base}, ${base} ${half}px, rgba(255,255,255,.4) ${half}px, rgba(255,255,255,.4) ${period}px)`;
+  if(pattern==='hachure2') return `repeating-linear-gradient(-45deg, ${base}, ${base} ${half}px, rgba(255,255,255,.4) ${half}px, rgba(255,255,255,.4) ${period}px)`;
+  if(pattern==='points') return `radial-gradient(rgba(255,255,255,.55) ${period*0.18}px, transparent ${period*0.19}px) 0 0/${period}px ${period}px, ${base}`;
+  return base;
+}
+function eventStyle(e,cat){
+  const base=e.color||cat.color;
+  const pattern=e.pattern || (e.fillType==='hachure'?'hachure1':(e.hatched?'hachure1':'rien'));
+  const bg=patternBg(base,e.color2,pattern,e.hatchW,e.degrade);
+  const border = (BORDER_W[e.borderW]||BORDER_W.moyen)+' solid rgba(0,0,0,.35)';
+  const textColor=textColorFor(base);
+  return `background:${bg};border:${border};color:${textColor};`;
+}
+
+function renderEdt(main){
+  const toolbar=document.createElement('div'); toolbar.className='toolbar';
+  const wn=document.createElement('div'); wn.className='weeknav';
+  wn.innerHTML=`<button id="prevW">←</button><span class="weeklabel">${weekLabel()}</span><button id="nextW">→</button><button id="todayW" class="iconbtn">Aujourd'hui</button>`;
+  toolbar.appendChild(wn);
+  const btn=document.createElement('button'); btn.className='btn'; btn.textContent='+ Ajouter un créneau';
+  btn.onclick=()=>openEventModal();
+  toolbar.appendChild(btn);
+  main.appendChild(toolbar);
+
+  function maxColW(){ return Math.max(60, Math.floor((window.innerWidth - 44 - 48)/7)); }
+  function maxHourPx(){
+    const headerH = document.querySelector('header').offsetHeight;
+    const toolbarH = toolbar.offsetHeight;
+    const avail = window.innerHeight - headerH - toolbarH - 60;
+    return Math.max(24, Math.floor(avail/HOURS));
+  }
+  gridSize.colW=Math.min(gridSize.colW, maxColW());
+  gridSize.hourPx=Math.min(gridSize.hourPx, maxHourPx());
+
+  const totalH=HOURS*gridSize.hourPx;
+  const outer=document.createElement('div'); outer.className='gridouter';
+  const wrap=document.createElement('div'); wrap.className='gridwrap';
+  const grid=document.createElement('div'); grid.className='grid';
+  grid.style.gridTemplateColumns=`44px repeat(7, ${gridSize.colW}px)`;
+  grid.appendChild(Object.assign(document.createElement('div'),{className:'corner'}));
+  const todayISO=toISODate(new Date());
+  const weekDates=[];
+  for(let i=0;i<7;i++){ const d=new Date(weekStart); d.setDate(d.getDate()+i); weekDates.push(d);
+    const iso=toISODate(d);
+    const h=document.createElement('div'); h.className='dayhead'+(iso===todayISO?' today':'');
+    h.innerHTML=`${DAYS_SHORT[i]}<small>${d.getDate()} ${MONTHS[d.getMonth()]}</small>`;
+    grid.appendChild(h);
+  }
+  const gutter=document.createElement('div'); gutter.className='gutter'; gutter.style.height=totalH+'px';
+  for(let h=START_H;h<=END_H;h++){ const s=document.createElement('span'); s.style.top=((h-START_H)*gridSize.hourPx)+'px'; s.textContent=(h%24)+'h'; gutter.appendChild(s); }
+  grid.appendChild(gutter);
+
+  weekDates.forEach((d,dow)=>{
+    const iso=toISODate(d);
+    const col=document.createElement('div'); col.className='daycol';
+    col.style.height=totalH+'px';
+    col.style.backgroundImage=`repeating-linear-gradient(to bottom,transparent,transparent ${gridSize.hourPx-1}px,var(--border) ${gridSize.hourPx}px)`;
+    events.filter(e=>occursOn(e,iso,dow)).forEach(e=>{
+      const cat=catOf(e.categoryId)||{color:'#999'};
+      const top=(toMin(e.start)-START_H*60)/60*gridSize.hourPx;
+      const h=Math.max((toMin(e.end)-toMin(e.start))/60*gridSize.hourPx,18);
+      const ev=document.createElement('div');
+      ev.className='ev'; ev.style.top=top+'px'; ev.style.height=h+'px';
+      ev.style.cssText+=eventStyle(e,cat);
+      ev.innerHTML=`<b>${escapeHtml(e.title)}</b>${e.start}-${e.end}<span class="ev-resize"></span>`;
+      wireEventDrag(ev,e,grid);
+      col.appendChild(ev);
+    });
+    grid.appendChild(col);
+  });
+  wrap.appendChild(grid);
+
+  function wireEventDrag(evEl,e,gridEl){
+    evEl.addEventListener('mousedown',(down)=>{
+      down.stopPropagation();
+      if(down.target.classList.contains('ev-resize')){
+        const startY=down.clientY; const startH=evEl.offsetHeight;
+        function onRMove(m){ evEl.style.height=Math.max(18,startH+(m.clientY-startY))+'px'; }
+        function onRUp(m){
+          document.removeEventListener('mousemove',onRMove);
+          document.removeEventListener('mouseup',onRUp);
+          const deltaMin=Math.round(((m.clientY-startY)/gridSize.hourPx*60)/15)*15;
+          const startMin=toMin(e.start);
+          let newEndMin=toMin(e.end)+deltaMin;
+          newEndMin=Math.max(startMin+15,Math.min(newEndMin,24*60));
+          const dayList=events.filter(x=>x.id!==e.id && x.date===e.date);
+          dayList.forEach(x=>{ const xs=toMin(x.start); if(xs>startMin && xs<newEndMin) newEndMin=xs; });
+          e.end=minutesToTime(newEndMin);
+          persistEventUpsert(e); saveLocal(); render();
+        }
+        document.addEventListener('mousemove',onRMove);
+        document.addEventListener('mouseup',onRUp);
+        return;
+      }
+      const startX=down.clientX, startY=down.clientY;
+      let moved=false;
+      function onMove(m){
+        const dx=m.clientX-startX, dy=m.clientY-startY;
+        if(!moved && Math.hypot(dx,dy)>6){ moved=true; evEl.style.opacity='0.55'; evEl.style.zIndex='50'; evEl.style.pointerEvents='none'; }
+        if(moved) evEl.style.transform=`translate(${dx}px,${dy}px)`;
+      }
+      function onUp(m){
+        document.removeEventListener('mousemove',onMove);
+        document.removeEventListener('mouseup',onUp);
+        evEl.style.transform=''; evEl.style.opacity=''; evEl.style.zIndex=''; evEl.style.pointerEvents='';
+        if(!moved){ page=e.categoryId; flashId=e.id; render(); return; }
+        const dayCols=gridEl.querySelectorAll('.daycol');
+        let targetIdx=0, best=Infinity;
+        dayCols.forEach((c,i)=>{ const r=c.getBoundingClientRect(); const mid=r.left+r.width/2; const d=Math.abs(m.clientX-mid); if(d<best){best=d;targetIdx=i;} });
+        const colRect=dayCols[targetIdx].getBoundingClientRect();
+        const relY=m.clientY-colRect.top;
+        let startMin=START_H*60+Math.round((relY/gridSize.hourPx*60)/15)*15;
+        startMin=Math.max(START_H*60,startMin);
+        const targetIso=toISODate(weekDates[targetIdx]);
+        attemptMove(e,targetIso,startMin);
+      }
+      document.addEventListener('mousemove',onMove);
+      document.addEventListener('mouseup',onUp);
+    });
+  }
+
+  const rR=document.createElement('div'); rR.className='resize-r'; rR.title='Agrandir en largeur';
+  const rL=document.createElement('div'); rL.className='resize-l'; rL.title='Agrandir en largeur';
+  const rB=document.createElement('div'); rB.className='resize-b'; rB.title='Agrandir en hauteur';
+  const rT=document.createElement('div'); rT.className='resize-t'; rT.title='Agrandir en hauteur';
+  const rC=document.createElement('div'); rC.className='resize-c'; rC.title='Agrandir largeur + hauteur';
+  outer.appendChild(wrap); outer.appendChild(rR); outer.appendChild(rL); outer.appendChild(rB); outer.appendChild(rT); outer.appendChild(rC);
+  main.appendChild(outer);
+
+  function startDrag(mode){
+    return function(e){
+      e.preventDefault();
+      const startX=e.clientX, startY=e.clientY;
+      const startColW=gridSize.colW, startHourPx=gridSize.hourPx;
+      const affectsW = mode==='r'||mode==='l'||mode==='c';
+      const affectsH = mode==='b'||mode==='t'||mode==='c';
+      const wSign = mode==='l' ? -1 : 1;
+      const hSign = mode==='t' ? -1 : 1;
+      function onMove(ev){
+        if(affectsW){ gridSize.colW=Math.max(60,Math.min(maxColW(),startColW+wSign*(ev.clientX-startX)/7)); }
+        if(affectsH){ gridSize.hourPx=Math.max(24,Math.min(maxHourPx(),startHourPx+hSign*(ev.clientY-startY)/HOURS)); }
+        requestAnimationFrame(render);
+      }
+      function onUp(){
+        document.removeEventListener('mousemove',onMove);
+        document.removeEventListener('mouseup',onUp);
+        localStorage.setItem('edt_gridsize',JSON.stringify(gridSize));
+      }
+      document.addEventListener('mousemove',onMove);
+      document.addEventListener('mouseup',onUp);
+    };
+  }
+  rR.addEventListener('mousedown',startDrag('r'));
+  rL.addEventListener('mousedown',startDrag('l'));
+  rB.addEventListener('mousedown',startDrag('b'));
+  rT.addEventListener('mousedown',startDrag('t'));
+  rC.addEventListener('mousedown',startDrag('c'));
+
+  document.getElementById('prevW').onclick=()=>{weekStart.setDate(weekStart.getDate()-7); render();};
+  document.getElementById('nextW').onclick=()=>{weekStart.setDate(weekStart.getDate()+7); render();};
+  document.getElementById('todayW').onclick=()=>{weekStart=mondayOf(new Date()); render();};
+}
+
+function fmtDate(iso){ const d=new Date(iso+'T00:00:00'); return `${DAYS_SHORT[(d.getDay()+6)%7]} ${d.getDate()} ${MONTHS[d.getMonth()]}`; }
+
+function renderList(main,catId){
+  const cat=catOf(catId);
+  const toolbar=document.createElement('div'); toolbar.className='toolbar';
+  toolbar.innerHTML=`<div style="font-size:13px;color:var(--muted)">Page : <b style="color:var(--text)">${cat.name}</b></div>`;
+  const right=document.createElement('div'); right.style.display='flex'; right.style.gap='6px';
+  const delCat=document.createElement('button'); delCat.className='iconbtn'; delCat.textContent='🗑️ Supprimer la page';
+  delCat.onclick=()=>{
+    customConfirm(`Supprimer la page "${cat.name}" et tous ses créneaux (${events.filter(e=>e.categoryId===catId).length}) ?`,()=>{
+      events.filter(e=>e.categoryId===catId).forEach(e=>persistEventDelete(e.id));
+      events=events.filter(e=>e.categoryId!==catId);
+      categories=categories.filter(c=>c.id!==catId);
+      persistCategories(); saveLocal();
+      page='edt'; render();
+    });
+  };
+  const editCat=document.createElement('button'); editCat.className='iconbtn'; editCat.textContent='✏️ Modifier la page';
+  editCat.onclick=()=>openCategoryModal(cat);
+  const btn=document.createElement('button'); btn.className='btn'; btn.textContent='+ Ajouter ici'; btn.style.background=cat.color;
+  btn.onclick=()=>openEventModal(null,catId);
+  right.appendChild(editCat); right.appendChild(delCat); right.appendChild(btn);
+  toolbar.appendChild(right);
+  main.appendChild(toolbar);
+
+  const list=document.createElement('div'); list.className='list';
+  let items=events.filter(e=>e.categoryId===catId);
+  const isDevoir = catId==='devoir' || cat.name.toLowerCase().includes('devoir');
+
+  if(items.length===0){ list.innerHTML='<div class="empty">Aucun élément pour l\'instant.</div>'; main.appendChild(list); return; }
+
+  if(isDevoir){
+    const groups={};
+    items.forEach(e=>{ const m=(e.matiere&&e.matiere.trim())||'Sans matière'; (groups[m]=groups[m]||[]).push(e); });
+    Object.keys(groups).sort((a,b)=>a.localeCompare(b)).forEach(m=>{
+      const gt=document.createElement('div'); gt.className='grouptitle'; gt.textContent=m;
+      list.appendChild(gt);
+      const cards=document.createElement('div'); cards.className='cards';
+      groups[m].sort((a,b)=> (a.date+a.start).localeCompare(b.date+b.start)).forEach(e=>cards.appendChild(makeCard(e,catId)));
+      list.appendChild(cards);
+    });
+  } else {
+    const cards=document.createElement('div'); cards.className='cards';
+    items.sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start)).forEach(e=>cards.appendChild(makeCard(e,catId)));
+    list.appendChild(cards);
+  }
+  main.appendChild(list);
+  if(flashId){ setTimeout(()=>{const el=list.querySelector(`[data-id="${flashId}"]`); if(el) el.scrollIntoView({behavior:'smooth',block:'center'});},50); }
+}
+
+function escapeHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function makeCard(e,catId){
+  const card=document.createElement('div'); card.className='card'+(e.id===flashId?' flash':''); card.dataset.id=e.id;
+  const notesHtml = e.notes ? ' · <span style="white-space:pre-line;">'+escapeHtml(e.notes).replace(/\n/g,'<br>')+'</span>' : '';
+  card.innerHTML=`<div class="info"><b>${escapeHtml(e.title)}</b><span>${fmtDate(e.date)} · ${e.start}-${e.end}${e.matiere?' · '+escapeHtml(e.matiere):''}${notesHtml}</span></div>`;
+  const actions=document.createElement('div'); actions.className='actions';
+  const edit=document.createElement('button'); edit.className='iconbtn'; edit.textContent='✏️';
+  edit.onclick=()=>openEventModal(e.id,catId);
+  const del=document.createElement('button'); del.className='iconbtn'; del.textContent='🗑️';
+  del.onclick=()=>{ customConfirm('Supprimer ce créneau ?',()=>{ events=events.filter(x=>x.id!==e.id); persistEventDelete(e.id); render(); }); };
+  actions.appendChild(edit); actions.appendChild(del); card.appendChild(actions);
+  return card;
+}
+
+const PASTELS=['#FFADAD','#FFD6A5','#FDFFB6','#CAFFBF','#9BF6FF','#A0C4FF','#BDB2FF','#FFC6FF','#FF6B6B','#FFA94D','#FFD43B','#69DB7C','#38D9A9','#4DABF7','#748FFC','#DA77F2','#F783AC','#E599F7','#B197FC','#91A7FF','#66D9E8','#63E6BE','#8CE99A','#FFE066'];
+const BORDER_OPTIONS=[['tresfin','Très fin'],['fin','Fin'],['moyen','Moyen'],['gros','Gros'],['tresgros','Très gros']];
+let eventDraft=null;
+
+function closeModal(){ document.getElementById('overlay').classList.remove('open'); eventDraft=null; }
+
+function syncDraftFromForm(){
+  if(!document.getElementById('f_title')) return;
+  eventDraft.title=document.getElementById('f_title').value;
+  eventDraft.matiere=document.getElementById('f_matiere').value;
+  eventDraft.categoryId=document.getElementById('f_cat').value;
+  eventDraft.date=document.getElementById('f_date').value;
+  eventDraft.start=document.getElementById('f_start').value;
+  eventDraft.end=document.getElementById('f_end').value;
+  eventDraft.recurrence=document.getElementById('f_recur').value;
+  eventDraft.notes=document.getElementById('f_notes').value;
+}
+
+function openEventModal(id=null, defaultCat=null){
+  editingId=id;
+  const existing = id ? events.find(e=>e.id===id) : null;
+  eventDraft = existing ? {
+    ...existing,
+    pattern: existing.pattern==='degrade'||existing.pattern==='plein' ? 'rien' : (existing.pattern || (existing.fillType==='hachure'||existing.hatched?'hachure1':'rien')),
+    degrade: existing.degrade!==undefined ? existing.degrade : (existing.pattern==='degrade'||existing.fillType==='degrade'),
+    pastelOn: existing.color ? PASTELS.includes(existing.color) : false,
+    borderW: existing.borderW || (existing.bold?'gros':'moyen'),
+    hatchW: existing.hatchW||'moyen'
+  } : {
+    title:'', matiere:'', categoryId:defaultCat||categories[0].id, date:toISODate(weekStart),
+    start:'08:00', end:'09:00', notes:'', recurrence:'none', color:null, color2:null,
+    pattern:'rien', degrade:false, pastelOn:false, borderW:'moyen', hatchW:'moyen'
+  };
+  renderEventForm();
+}
+
+function isHex(v){ return /^#[0-9a-fA-F]{6}$/.test(v||''); }
+
+function swatchPreviewStyle(){
+  const base=eventDraft.color || (catOf(eventDraft.categoryId)||{color:'#4f7cff'}).color;
+  const bg=patternBg(base,eventDraft.color2,eventDraft.pattern,eventDraft.hatchW,eventDraft.degrade);
+  const border = (BORDER_W[eventDraft.borderW]||BORDER_W.moyen)+' solid rgba(0,0,0,.35)';
+  return `background:${bg};border:${border};width:36px;height:36px;border-radius:8px;display:inline-block;vertical-align:middle;`;
+}
+
+function renderEventForm(){
+  const existing = editingId ? true : false;
+  const body=document.getElementById('modalBody');
+  const catOptions = categories.map(c=>`<option value="${c.id}" ${eventDraft.categoryId===c.id?'selected':''}>${c.name}</option>`).join('');
+  body.innerHTML=`
+    <h2>${existing?'Modifier':'Ajouter'} un créneau</h2>
+    <div class="field"><label>Titre</label><input id="f_title" value="${(eventDraft.title||'').replace(/"/g,'&quot;')}" placeholder="ex: Maths, DM Physique..."></div>
+    <div class="field"><label>Matière (pour classer les devoirs)</label><input id="f_matiere" value="${eventDraft.matiere||''}" placeholder="ex: Physique"></div>
+    <div class="field"><label>Page / Catégorie</label><select id="f_cat">${catOptions}</select></div>
+    <div class="row2">
+      <div class="field"><label>Date</label><input type="date" id="f_date" value="${eventDraft.date}"></div>
+      <div class="field"><label>Récurrence</label><select id="f_recur">
+        <option value="none" ${eventDraft.recurrence==='none'?'selected':''}>Aucune</option>
+        <option value="daily" ${eventDraft.recurrence==='daily'?'selected':''}>Tous les jours</option>
+        <option value="weekly" ${eventDraft.recurrence==='weekly'?'selected':''}>Toutes les semaines</option>
+        <option value="monthly" ${eventDraft.recurrence==='monthly'?'selected':''}>Tous les mois</option>
+      </select></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Début</label><input type="time" id="f_start" value="${eventDraft.start}"></div>
+      <div class="field"><label>Fin</label><input type="time" id="f_end" value="${eventDraft.end}"></div>
+    </div>
+    <div class="field">
+      <label>Style de la case</label>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="${swatchPreviewStyle()}"></span>
+        <button type="button" class="btn secondary" id="styleBtn">🎨 Modifier le style</button>
+      </div>
+    </div>
+    <div class="field"><label>Notes (optionnel)</label><textarea id="f_notes" rows="2">${eventDraft.notes||''}</textarea></div>
+    <div class="modalbtns">
+      <button class="btn secondary" onclick="closeModal()">Annuler</button>
+      <button class="btn" onclick="saveEvent()">Enregistrer</button>
+    </div>`;
+  document.getElementById('styleBtn').onclick=()=>{ syncDraftFromForm(); renderStyleForm(); };
+  document.getElementById('overlay').classList.add('open');
+}
+
+function renderStyleForm(){
+  const body=document.getElementById('modalBody');
+  const mkSwatches=(target)=>PASTELS.map(c=>`<span class="swatch" data-c="${c}" data-t="${target}" style="background:${c};width:28px;height:28px;border-radius:7px;display:inline-block;cursor:pointer;border:2px solid ${(target==='c1'?eventDraft.color:eventDraft.color2)===c?'var(--text)':'transparent'};"></span>`).join('');
+  const hatchDensityOptions=[['tresfin','Très fin (beaucoup de traits)'],['fin','Fin'],['moyen','Moyen'],['gros','Gros'],['tresgros','Très gros (peu de traits)']];
+  const hatchSelect=`<select id="s_hatchw">${hatchDensityOptions.map(([v,l])=>`<option value="${v}" ${eventDraft.hatchW===v?'selected':''}>${l}</option>`).join('')}</select>`;
+  const borderSelect=`<select id="s_borderw">${BORDER_OPTIONS.map(([v,l])=>`<option value="${v}" ${eventDraft.borderW===v?'selected':''}>${l}</option>`).join('')}</select>`;
+  const formeIsOn = eventDraft.pattern!=='rien';
+  const formeSelect=`<select id="s_forme">
+      <option value="rien" ${eventDraft.pattern==='rien'?'selected':''}>Rien</option>
+      <option value="hachure1" ${eventDraft.pattern==='hachure1'?'selected':''}>Hachuré droite ↗</option>
+      <option value="hachure2" ${eventDraft.pattern==='hachure2'?'selected':''}>Hachuré gauche ↖</option>
+      <option value="points" ${eventDraft.pattern==='points'?'selected':''}>Points</option>
+    </select>`;
+  body.innerHTML=`
+    <h2>🎨 Style de la case</h2>
+    <div style="text-align:center;margin-bottom:14px;"><span style="${swatchPreviewStyle()}"></span></div>
+    <div class="field" style="border:1px solid var(--border);border-radius:8px;padding:10px;">
+      <label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="s_pastel" style="width:auto;" ${eventDraft.pastelOn?'checked':''}> Couleur pastel</label>
+      <div id="pastelPanel" style="${eventDraft.pastelOn?'display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;':'display:none;'}">${mkSwatches('c1')}</div>
+    </div>
+    <div class="field"><label>Ou choisis une couleur précise</label>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <input type="color" id="s_customcolor" value="${eventDraft.color||'#4f7cff'}" style="width:56px;height:40px;padding:2px;flex:none;">
+        <button type="button" class="btn secondary" id="s_colorOk" style="flex:1;">OK — valider cette couleur</button>
+      </div>
+    </div>
+    <div class="field" style="border:1px solid var(--border);border-radius:8px;padding:10px;">
+      <label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="s_degrade" style="width:auto;" ${eventDraft.degrade?'checked':''}> Dégradé</label>
+      <div id="c2wrap" style="${eventDraft.degrade?'margin-top:10px;':'display:none;'}">
+        <label>Deuxième couleur</label><div style="display:flex;flex-wrap:wrap;gap:6px;">${mkSwatches('c2')}</div>
+      </div>
+    </div>
+    <div class="field" style="border:1px solid var(--border);border-radius:8px;padding:10px;">
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px;">Forme</div>
+      <div class="field">${formeSelect}</div>
+      <div class="field" id="hatchWwrap" style="${formeIsOn?'':'display:none;'}"><label>Épaisseur</label>${hatchSelect}</div>
+    </div>
+    <div class="field" style="border:1px solid var(--border);border-radius:8px;padding:10px;">
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px;">Contour</div>
+      ${borderSelect}
+    </div>
+    <p class="hint" style="margin-bottom:10px;">💡 La couleur du texte s'adapte automatiquement (blanc sur fond foncé, noir sur fond clair).</p>
+    <div class="modalbtns">
+      <button type="button" class="btn secondary" id="backBtn">← Retour</button>
+    </div>`;
+  body.querySelectorAll('.swatch').forEach(sw=>{
+    sw.onclick=()=>{
+      if(sw.dataset.t==='c1'){ eventDraft.color=sw.dataset.c; }
+      else { eventDraft.color2=sw.dataset.c; }
+      pullStyleForm();
+      renderStyleForm();
+    };
+  });
+  document.getElementById('s_colorOk').onclick=()=>{
+    eventDraft.color=document.getElementById('s_customcolor').value;
+    pullStyleForm();
+    renderEventForm();
+  };
+  document.getElementById('s_pastel').onchange=()=>{ pullStyleForm(); renderStyleForm(); };
+  document.getElementById('s_degrade').onchange=()=>{ pullStyleForm(); renderStyleForm(); };
+  document.getElementById('s_forme').onchange=()=>{ pullStyleForm(); renderStyleForm(); };
+  document.getElementById('s_hatchw').onchange=()=>{ pullStyleForm(); };
+  document.getElementById('s_borderw').onchange=()=>{ pullStyleForm(); };
+  document.getElementById('backBtn').onclick=()=>{ pullStyleForm(); renderEventForm(); };
+}
+function pullStyleForm(){
+  const f=document.getElementById('s_forme'); if(f) eventDraft.pattern=f.value;
+  const hw=document.getElementById('s_hatchw'); if(hw) eventDraft.hatchW=hw.value;
+  const bw=document.getElementById('s_borderw'); if(bw) eventDraft.borderW=bw.value;
+  const dg=document.getElementById('s_degrade'); if(dg) eventDraft.degrade=dg.checked;
+  const ps=document.getElementById('s_pastel'); if(ps) eventDraft.pastelOn=ps.checked;
+}
+
+function saveEvent(){
+  syncDraftFromForm();
+  if(!eventDraft.title.trim()){ showToast('Merci de donner un titre.'); return; }
+  if(toMin(eventDraft.end)<=toMin(eventDraft.start)){ showToast("L'heure de fin doit être après le début."); return; }
+  const data={...eventDraft, title:eventDraft.title.trim(), matiere:(eventDraft.matiere||'').trim(), notes:(eventDraft.notes||'').trim()};
+  if(editingId){
+    events=events.map(e=>e.id===editingId?{...e,...data}:e);
+    persistEventUpsert({id:editingId,...data});
+  } else {
+    data.id='local'+Date.now();
+    events.push(data);
+    persistEventUpsert(data);
+  }
+  document.getElementById('overlay').classList.remove('open'); eventDraft=null;
+  render();
+}
+
+function openAddCategory(){ openCategoryModal(null); }
+
+function openCategoryModal(existingCat){
+  let draftColor = existingCat ? existingCat.color : '#4f7cff';
+  const body=document.getElementById('modalBody');
+  function draw(){
+    const swatches=PASTELS.map(c=>`<span class="swatch" data-c="${c}" style="background:${c};width:28px;height:28px;border-radius:7px;display:inline-block;cursor:pointer;border:2px solid ${draftColor===c?'var(--text)':'transparent'};"></span>`).join('');
+    const prevName=document.getElementById('c_name')?document.getElementById('c_name').value:(existingCat?existingCat.name:'');
+    body.innerHTML=`
+      <h2>${existingCat?'Modifier la page':'Nouvelle page'}</h2>
+      <div class="field"><label>Nom</label><input id="c_name" placeholder="ex: Sport, Stage..." value="${prevName.replace(/"/g,'&quot;')}"></div>
+      <div class="field"><label>Couleur (palette pastel)</label><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">${swatches}</div></div>
+      <div class="field"><label>Ou choisis une couleur précise</label>
+        <input type="color" id="c_customcolor" value="${draftColor}" style="width:56px;height:40px;padding:2px;">
+      </div>
+      <div class="modalbtns">
+        <button type="button" class="btn secondary" onclick="closeModal()">Annuler</button>
+        <button type="button" class="btn" id="createBtn">${existingCat?'Enregistrer':'Créer'}</button>
+      </div>`;
+    body.querySelectorAll('.swatch').forEach(sw=>{ sw.onclick=()=>{ draftColor=sw.dataset.c; draw(); }; });
+    document.getElementById('c_customcolor').oninput=(e)=>{ draftColor=e.target.value; };
+    document.getElementById('createBtn').onclick=()=>{
+      draftColor=document.getElementById('c_customcolor').value||draftColor;
+      saveCategory(draftColor, existingCat?existingCat.id:null);
+    };
+  }
+  draw();
+  document.getElementById('overlay').classList.add('open');
+}
+function saveCategory(color, editId){
+  const nameEl=document.getElementById('c_name');
+  const name=nameEl?nameEl.value.trim():'';
+  if(!name){ showToast('Donne un nom à la page.'); return; }
+  let targetId;
+  if(editId){
+    const cat=categories.find(c=>c.id===editId);
+    if(cat){ cat.name=name; cat.color=color||cat.color; }
+    targetId=editId;
+  } else {
+    targetId='c'+Date.now();
+    categories.push({id:targetId,name,color:color||'#4f7cff'});
+  }
+  try{ persistCategories(); }catch(e){ console.error(e); }
+  document.getElementById('overlay').classList.remove('open');
+  page=targetId; render();
+}
+
+document.getElementById('overlay').addEventListener('click',e=>{ if(e.target.id==='overlay') closeModal(); });
+
+initSync();
+</script>
+</body>
+</html>
